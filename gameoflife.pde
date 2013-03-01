@@ -14,33 +14,92 @@ int x = 1<<4;
 
 int chosenColor = 100;
 
-HashMap<Integer,Map<String,Float>> edges;
+HashMap<Integer,Map<String,List<Float>>> edges;
 HashMap<Integer,Set<Integer>> neighbors;
 HashMap<Integer,Integer> state, prevState;
 
 HashMap<List<Float>,Integer> labels;
 HashMap<List<Float>,ArrayList<Integer>> vertices;
+HashSet<List<Float>> edgeVertices;
 
 // Hexagons; list of IDs (we will hook up the connections later)
 // ID of top left, coordinates of top left
 // 6 indicates for whether to include the 6 edges - some are excluded
 // because they overlap with other hexagons, so we don't duplicate edges
 float[][] hexagons = {
-  {1, 100, 100, 1, 1, 1, 1, 1, 1},
-  {7, 100 + 2*edgeLength*cos(radians(30)), 100, 0, 1, 1, 1, 1, 1},
-  {13, 100 + 4*edgeLength*cos(radians(30)), 100, 0, 1, 1, 1, 1, 1},
-  {19, 100 + edgeLength*cos(radians(30)), 100 + edgeLength*(1+sin(radians(30))), 1, 1, 1, 1, 0, 0},
-  {25, 100 + 3*edgeLength*cos(radians(30)), 100+edgeLength*(1+sin(radians(30))), 0, 1, 1, 1, 0, 0},
-  {31, 100 + 5*edgeLength*cos(radians(30)), 100+edgeLength*(1+sin(radians(30))), 0, 1, 1, 1, 1, 0},
-  {37, 100, 100+edgeLength*(2+2*sin(radians(30))), 1, 1, 1, 1, 0, 1},
-  {42, 100+2*edgeLength*cos(radians(30)), 100+edgeLength*(2+2*sin(radians(30))), 0, 1, 1, 1, 0, 0},
-  {49, 100+4*edgeLength*cos(radians(30)), 100+edgeLength*(2+2*sin(radians(30))), 0, 1, 1, 1, 0, 0}
+  {100, 100} ,
+  {100 + 2*edgeLength*cos(radians(30)), 100},
+  {100 + 4*edgeLength*cos(radians(30)), 100},
+  {100 + edgeLength*cos(radians(30)), 100 + edgeLength*(1+sin(radians(30)))},
+  {100 + 3*edgeLength*cos(radians(30)), 100+edgeLength*(1+sin(radians(30)))},
+  {100 + 5*edgeLength*cos(radians(30)), 100+edgeLength*(1+sin(radians(30)))},
+  {100, 100+edgeLength*(2+2*sin(radians(30)))},
+  {100+2*edgeLength*cos(radians(30)), 100+edgeLength*(2+2*sin(radians(30)))},
+  {100+4*edgeLength*cos(radians(30)), 100+edgeLength*(2+2*sin(radians(30)))}
 };
 
 // The state hashtable is double buffered so we don't step on ourselves
 // Copy state to its prevState buffer
 void copyPrevState() {
   prevState = new HashMap(state);
+}
+
+void addEdgeVertices(List<Float> p1, List<Float> p2) {
+  ArrayList<Float> a = new ArrayList(4);
+  a.add(p1.get(0));
+  a.add(p1.get(1));
+  a.add(p2.get(0));
+  a.add(p2.get(1));
+  edgeVertices.add(a);
+  
+  ArrayList<Float> b = new ArrayList(4);
+  b.add(p2.get(0));
+  b.add(p2.get(1));
+  b.add(p1.get(0));
+  b.add(p1.get(1));
+  edgeVertices.add(b);
+}
+
+boolean edgeExists(List<Float> p1, List<Float> p2) {
+  for (List<Float> e : edgeVertices) {
+    // they're the same if within 1 unit of each other
+    // TODO: Figure out how to put edgeVertices in a TreeSet and use the tree to avoid iterating
+    // over all the edges to find overlaps
+    float dist1 = (float)Math.sqrt(Math.pow(e.get(0) - p1.get(0), 2) + Math.pow(e.get(1) - p1.get(1), 2));
+    float dist2 = (float)Math.sqrt(Math.pow(e.get(2) - p2.get(0), 2) + Math.pow(e.get(3) - p2.get(1), 2));
+    
+    if (dist1 < 1.0 && dist2 < 1.0) {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
+Integer edgeNo = 0;
+
+List<Float> e8a, e8b;
+
+void addEdgeIfNotExists(float x1, float y1, float x2, float y2) {
+  ArrayList<Float> p1 = new ArrayList(2);
+  p1.add(x1);
+  p1.add(y1);
+    
+  ArrayList<Float> p2 = new ArrayList(2);
+  p2.add(x2);
+  p2.add(y2);
+    
+  if (!edgeExists(p1, p2)) {
+    Integer id = ++edgeNo;
+    HashMap edge = new HashMap();
+    edge.put("p1", p1);
+    edge.put("p2", p2);
+    edges.put(id, edge);
+    
+    addEdgeVertices(p1, p2);
+
+    state.put(id, round(random(256)));
+  }
 }
 
 void setup() {
@@ -51,6 +110,9 @@ void setup() {
   prevState = new HashMap();
   labels = new HashMap();
   vertices = new HashMap();
+  edgeVertices = new HashSet();
+  
+  int edgeNo = 0;
   
   // Go through hardcoded list of hexagons and create the edges. Edge 1 is the vertical
   // edge on the left of the hexagon.
@@ -58,88 +120,28 @@ void setup() {
 //    println("HEXAGON starting at " + (int)hexagon[0]);
     
     // edge 1
-    if (hexagon[3] == 1) {
-      Integer id = new Integer((int)hexagon[0]);
-      HashMap edge1 = new HashMap();
-      edge1.put("x1", new Float(hexagon[1]));
-      edge1.put("y1", new Float(hexagon[2]));
-      edge1.put("x2", new Float(hexagon[1]));
-      edge1.put("y2", new Float(hexagon[2] + edgeLength));
-      edges.put(id, edge1);
-//      println("generating edge " + (int)hexagon[0]);
-
-      state.put(id, round(random(256)));
-    }
+    addEdgeIfNotExists(hexagon[0], hexagon[1],
+      hexagon[0], hexagon[1] + edgeLength);
 
     // edge 2
-    if (hexagon[4] == 1) {
-      Integer id = new Integer((int)hexagon[0]+1);
-      HashMap edge2 = new HashMap();
-      edge2.put("x1", new Float(hexagon[1]));
-      edge2.put("y1", new Float(hexagon[2] + edgeLength));
-      edge2.put("x2", new Float(hexagon[1] + edgeLength*cos(radians(30))));
-      edge2.put("y2", new Float(hexagon[2] + edgeLength + edgeLength*sin(radians(30))));
-      edges.put(id, edge2);
-//      println("generating edge " + ((int)hexagon[0]+1));
-      
-      state.put(id, round(random(256)));
-    }
-    
+    addEdgeIfNotExists(hexagon[0], hexagon[1] + edgeLength,
+      hexagon[0] + edgeLength*cos(radians(30)), hexagon[1] + edgeLength + edgeLength*sin(radians(30)));
+
     // edge 3
-    if (hexagon[5] == 1) {
-      Integer id = new Integer((int)hexagon[0]+2);
-      HashMap edge3 = new HashMap();
-      edge3.put("x1", new Float(hexagon[1] + edgeLength*cos(radians(30))));
-      edge3.put("y1", new Float(hexagon[2] + edgeLength*(1+sin(radians(30)))));
-      edge3.put("x2", new Float(hexagon[1] + 2*edgeLength*cos(radians(30))));
-      edge3.put("y2", new Float(hexagon[2] + edgeLength));
-      edges.put(id, edge3);
-//      println("generating edge " + ((int)hexagon[0]+2));
-      
-      state.put(id, round(random(256)));
-    }
+    addEdgeIfNotExists(hexagon[0] + edgeLength*cos(radians(30)), hexagon[1] + edgeLength*(1+sin(radians(30))),
+       hexagon[0] + 2*edgeLength*cos(radians(30)), hexagon[1] + edgeLength);
     
     // edge 4
-    if (hexagon[6] == 1) {
-      Integer id = new Integer((int)hexagon[0]+3);
-      HashMap edge4 = new HashMap();
-      edge4.put("x1", new Float(hexagon[1] + 2*edgeLength*cos(radians(30))));
-      edge4.put("y1", new Float(hexagon[2] + edgeLength));
-      edge4.put("x2", new Float(hexagon[1] + 2*edgeLength*cos(radians(30))));
-      edge4.put("y2", new Float(hexagon[2]));
-      edges.put(id, edge4);
-//      println("generating edge " + ((int)hexagon[0]+3));
-      
-      state.put(id, round(random(256)));
-    }
+    addEdgeIfNotExists(hexagon[0] + 2*edgeLength*cos(radians(30)), hexagon[1] + edgeLength,
+      hexagon[0] + 2*edgeLength*cos(radians(30)), hexagon[1]);
     
     // edge 5
-    if (hexagon[7] == 1) {
-      Integer id = new Integer((int)hexagon[0]+4);
-      HashMap edge5 = new HashMap();
-      edge5.put("x1", new Float(hexagon[1] + 2*edgeLength*cos(radians(30))));
-      edge5.put("y1", new Float(hexagon[2]));
-      edge5.put("x2", new Float(hexagon[1] + edgeLength*cos(radians(30))));
-      edge5.put("y2", new Float(hexagon[2] - edgeLength*sin(radians(30))));
-      edges.put(id, edge5);
-//      println("generating edge " + ((int)hexagon[0]+4));
-      
-      state.put(id, round(random(256)));
-    }
+    addEdgeIfNotExists(hexagon[0] + 2*edgeLength*cos(radians(30)), hexagon[1],
+      hexagon[0] + edgeLength*cos(radians(30)), hexagon[1] - edgeLength*sin(radians(30)));
     
     // edge 6
-    if (hexagon[8] == 1) {
-      Integer id = new Integer((int)hexagon[0]+5);
-      HashMap edge6 = new HashMap();
-      edge6.put("x1", new Float(hexagon[1] + edgeLength*cos(radians(30))));
-      edge6.put("y1", new Float(hexagon[2] - edgeLength*sin(radians(30))));
-      edge6.put("x2", new Float(hexagon[1]));
-      edge6.put("y2", new Float(hexagon[2]));
-      edges.put(id, edge6);
-//      println("generating edge " + ((int)hexagon[0]+5));
-      
-      state.put(id, round(random(256)));
-    }
+    addEdgeIfNotExists(hexagon[0] + edgeLength*cos(radians(30)), hexagon[1] - edgeLength*sin(radians(30)),
+      hexagon[0], hexagon[1]);
   }
   
   copyPrevState();
@@ -147,15 +149,11 @@ void setup() {
   neighbors = new HashMap();
   
   // automatically set up neighbors hashtable using a hashmap of vertices
-  for (Entry<Integer,Map<String,Float>> e : (Set<Entry<Integer,Map<String,Float>>>)edges.entrySet()) {
+  for (Entry<Integer,Map<String,List<Float>>> e : (Set<Entry<Integer,Map<String,List<Float>>>>)edges.entrySet()) {
     Integer id = e.getKey();
-    Map<String,Float> edge = e.getValue();
-    ArrayList<Float> p1 = new ArrayList();
-    p1.add(edge.get("x1"));
-    p1.add(edge.get("y1"));
-    ArrayList<Float> p2 = new ArrayList();
-    p2.add(edge.get("x2"));
-    p2.add(edge.get("y2"));
+    Map<String,List<Float>> edge = e.getValue();
+    List<Float> p1 = edge.get("p1");
+    List<Float> p2 = edge.get("p2");
     
     if (vertices.containsKey(p1)) {
       vertices.get(p1).add(id);
@@ -175,8 +173,8 @@ void setup() {
     
     // update the labels  
     // labels are used for detecting mouse clicks for manual interaction
-    Float x = ((Float)edge.get("x1") + (Float)edge.get("x2"))/2.0;
-    Float y = ((Float)edge.get("y1") + (Float)edge.get("y2"))/2.0;
+    Float x = (edge.get("p1").get(0) + edge.get("p2").get(0))/2.0;
+    Float y = (edge.get("p1").get(1) + edge.get("p2").get(1))/2.0;
     //println("x=" + x + " y=" + y);
     
     ArrayList<Float> coord = new ArrayList();
@@ -186,45 +184,40 @@ void setup() {
     labels.put(coord, id);
   }
 
-  for (Entry<Integer,Map<String,Float>> e : (Set<Entry<Integer,Map<String,Float>>>)edges.entrySet()) {
+  for (Entry<Integer,Map<String,List<Float>>> e : (Set<Entry<Integer,Map<String,List<Float>>>>)edges.entrySet()) {
     Integer id = e.getKey();
-    Map<String,Float> edge = e.getValue();
-    ArrayList<Float> p1 = new ArrayList();
-    p1.add(edge.get("x1"));
-    p1.add(edge.get("y1"));
-    ArrayList<Float> p2 = new ArrayList();
-    p2.add(edge.get("x2"));
-    p2.add(edge.get("y2"));
+    Map<String,List<Float>> edge = e.getValue();
+    List<Float> p1 = edge.get("p1");
+    List<Float> p2 = edge.get("p2");
     
-    // neighbors on end 1
-    ArrayList<Integer> vertexEdges = vertices.get(p1);
-    for (Integer n : vertexEdges) {
-      if (!n.equals(id)) {
-        // add neighbors data
-        if (neighbors.containsKey(id)) {
-          neighbors.get(id).add(n);
-        } else {
-          HashSet ns = new HashSet();
-          ns.add(n);
-          neighbors.put(id, ns);
+    print("neighbors for edge " + id + ": ");
+    
+    for (Entry<List<Float>,ArrayList<Integer>> ve : (Set<Entry<List<Float>,ArrayList<Integer>>>)vertices.entrySet()) {
+      List<Float> vertex = ve.getKey();
+      List<Integer> vertexEdges = ve.getValue();
+      
+      float dist1 = (float)Math.sqrt(Math.pow(p1.get(0) - vertex.get(0), 2) + Math.pow(p1.get(1) - vertex.get(1), 2));
+      float dist2 = (float)Math.sqrt(Math.pow(p2.get(0) - vertex.get(0), 2) + Math.pow(p2.get(1) - vertex.get(1), 2));
+      
+      if (dist1 > 1.0 && dist2 > 1.0) continue;
+      
+      for (Integer n : vertexEdges) {
+        if (!n.equals(id)) {
+          print(n + " ");
+          // add neighbors data
+          if (neighbors.containsKey(id)) {
+            neighbors.get(id).add(n);
+          } else {
+            HashSet ns = new HashSet();
+            ns.add(n);
+            neighbors.put(id, ns);
+          }
         }
       }
     }
 
-    // neighbors on end 2
-    vertexEdges = vertices.get(p2);
-    for (Integer n : vertexEdges) {
-      if (!n.equals(id)) {
-        // add neighbors data
-        if (neighbors.containsKey(id)) {
-          neighbors.get(id).add(n);
-        } else {
-          HashSet ns = new HashSet();
-          ns.add(n);
-          neighbors.put(id, ns);
-        }
-      }
-    }
+    
+    println("");
   }
   
   frameRate(10);
@@ -286,24 +279,22 @@ void draw() {
     rect(i*boxWidth, height-paletteHeight, (i+1)*boxWidth, height);
   }
 
-  for (Entry<Integer,Map<String,Float>> entry : (Set<Entry<Integer,Map<String,Float>>>)edges.entrySet()) {  
-    Integer id = (Integer)entry.getKey();
-    Map<String,Float> edge = (Map)entry.getValue();
+  for (Entry<Integer,Map<String,List<Float>>> entry : (Set<Entry<Integer,Map<String,List<Float>>>>)edges.entrySet()) {  
+    Integer id = entry.getKey();
+    Map<String,List<Float>> edge = entry.getValue();
     
     int col = (int)(Integer)state.get(id);
-/*    int r = col >> 5;
-    int g = (col - (r<<5))>>2;
-    int b = (col - (r<<5) -(g<<2));
-    stroke(round(r/8.0*255.0), round(g/8.0*255.0), round(b/4.0)*255.0);
-    */
     
     float[] rgb = palette((float)col);
     stroke(rgb[0], rgb[1], rgb[2]);
     
-    Float x1 = edge.get("x1");
-    Float y1 = edge.get("y1");
-    Float x2 = edge.get("x2");
-    Float y2 = edge.get("y2");
+    List<Float> p1 = edge.get("p1");
+    List<Float> p2 = edge.get("p2");
+    
+    Float x1 = p1.get(0);
+    Float y1 = p1.get(1);
+    Float x2 = p2.get(0);
+    Float y2 = p2.get(1);
         
     line(x1, y1, x2, y2);
     
