@@ -23,7 +23,8 @@ HashMap<List<Float>,ArrayList<Integer>> vertices;
 
 // Hexagons; list of IDs (we will hook up the connections later)
 // ID of top left, coordinates of top left
-// 6 indicates for whether to include the 6 edges
+// 6 indicates for whether to include the 6 edges - some are excluded
+// because they overlap with other hexagons, so we don't duplicate edges
 float[][] hexagons = {
   {1, 100, 100, 1, 1, 1, 1, 1, 1},
   {7, 100 + 2*edgeLength*cos(radians(30)), 100, 0, 1, 1, 1, 1, 1},
@@ -36,11 +37,10 @@ float[][] hexagons = {
   {49, 100+4*edgeLength*cos(radians(30)), 100+edgeLength*(2+2*sin(radians(30))), 0, 1, 1, 1, 0, 0}
 };
 
+// The state hashtable is double buffered so we don't step on ourselves
+// Copy state to its prevState buffer
 void copyPrevState() {
-  for (Entry<Integer,Integer> entry : (Set<Entry<Integer,Integer>>)state.entrySet()) {
-    Integer id = (Integer)entry.getKey();
-    prevState.put(id, entry.getValue());
-  }
+  prevState = new HashMap(state);
 }
 
 void setup() {
@@ -52,6 +52,8 @@ void setup() {
   labels = new HashMap();
   vertices = new HashMap();
   
+  // Go through hardcoded list of hexagons and create the edges. Edge 1 is the vertical
+  // edge on the left of the hexagon.
   for (float[] hexagon : hexagons) {
 //    println("HEXAGON starting at " + (int)hexagon[0]);
     
@@ -144,7 +146,7 @@ void setup() {
   
   neighbors = new HashMap();
   
-  // automatically set up neighbors hashtable
+  // automatically set up neighbors hashtable using a hashmap of vertices
   for (Entry<Integer,Map<String,Float>> e : (Set<Entry<Integer,Map<String,Float>>>)edges.entrySet()) {
     Integer id = e.getKey();
     Map<String,Float> edge = e.getValue();
@@ -172,6 +174,7 @@ void setup() {
     }
     
     // update the labels  
+    // labels are used for detecting mouse clicks for manual interaction
     Float x = ((Float)edge.get("x1") + (Float)edge.get("x2"))/2.0;
     Float y = ((Float)edge.get("y1") + (Float)edge.get("y2"))/2.0;
     //println("x=" + x + " y=" + y);
@@ -225,32 +228,33 @@ void setup() {
   }
 }
 
+// map unsigned 8-bit value to a color 
 float[] palette(float col) {
   float[] rgb = {0,0,0};
-    float red, green, blue;
+  float red, green, blue;
     
-    // red to green
-    if (col <= 85) {
-      green = map(col, 0, 85, 0, 255);
-      red = map(col, 0, 85, 255, 0);
-      blue = 0;
-    // green to blue
-    } else if (col <= 170) {
-      green = map(col, 85, 170, 255, 0);
-      blue = map(col, 85, 170, 0, 255);
-      red = 0;
-    // blue to red
-    } else {
-      green = 0;
-      blue = map(col, 170, 255, 255, 0);
-      red = map(col, 170, 255, 0, 255);
-    }
+  // red to green
+  if (col <= 85) {
+    green = map(col, 0, 85, 0, 255);
+    red = map(col, 0, 85, 255, 0);
+    blue = 0;
+  // green to blue
+  } else if (col <= 170) {
+    green = map(col, 85, 170, 255, 0);
+    blue = map(col, 85, 170, 0, 255);
+    red = 0;
+  // blue to red
+  } else {
+    green = 0;
+    blue = map(col, 170, 255, 255, 0);
+    red = map(col, 170, 255, 0, 255);
+  }
     
-    rgb[0] = red;
-    rgb[1] = green;
-    rgb[2] = blue;
+  rgb[0] = red;
+  rgb[1] = green;
+  rgb[2] = blue;
     
-    return rgb;
+  return rgb;
 }
 
 void draw() {
@@ -259,13 +263,14 @@ void draw() {
   strokeWeight(20);
   
   float boxWidth = width/256;
+
+  // Draw color palette at the bottom
   
   stroke(0);
   textSize(15);
   textAlign(LEFT);
   text("Select a color from the palette, then click a number to change an edge", paletteHeight*3, height-paletteHeight-20.0);
   
-  // The chosen color
   rectMode(CORNERS);
   
   float chosen[] = palette(chosenColor);
@@ -273,7 +278,6 @@ void draw() {
   stroke(chosen[0], chosen[1], chosen[2]);
   rect(0, height-paletteHeight*3, paletteHeight*2, height);
   
-  // the color palette
   for (int i = 0; i < 256; i++) {
     float pal[] = palette(i);
     stroke(pal[0], pal[1], pal[2]);
@@ -317,6 +321,7 @@ void draw() {
   advanceState();
 }
 
+// State transition function
 void advanceState() { 
   for (Entry<Integer,Integer> entry : (Set<Entry<Integer,Integer>>)state.entrySet()) {
     Integer id = (Integer)entry.getKey();
@@ -378,6 +383,7 @@ void advanceState() {
   copyPrevState();
 }
 
+// Mouse click handler for color selection
 void mousePressed() {
   if (mouseY > height-paletteHeight) {
     float boxWidth = width/256;
