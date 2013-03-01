@@ -314,6 +314,10 @@ void draw() {
   
   lastUpdate = millis();
   
+  advanceState();
+}
+
+void advanceState() { 
   for (Entry<Integer,Integer> entry : (Set<Entry<Integer,Integer>>)state.entrySet()) {
     Integer id = (Integer)entry.getKey();
     Set<Integer> n = neighbors.get(id);
@@ -361,8 +365,6 @@ void draw() {
         nextState = 0.25*ownState + 0.75*high;
       }
     }
-    
-    
     
     nextState = nextState + random(10);
     if (random(1) <= 0.0001 && false) nextState += random(80);
