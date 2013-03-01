@@ -3,19 +3,18 @@ import java.util.Map.Entry;
 
 int width = 800, height = 700;
 
-int originX = 40, originY = 70;
+final int originX = 30, originY = 70;
 
-int edgeLength = 80;
-int paletteHeight = 30;
+final int edgeLength = 50;
+final int paletteHeight = 30;
+final int edgeThickness = 15;
 
 int lastUpdate = 0;
 
-int updateInterval = 750;
+final int updateInterval = 750;
 
-int rows = 4;
-int cols = 4;
-
-int x = 1<<4;
+final int rows = 6;
+final int cols = 8;
 
 int chosenColor = 100;
 
@@ -30,18 +29,18 @@ HashSet<List<Float>> edgeVertices;
 // The state hashtable is double buffered so we don't step on ourselves
 // Copy state to its prevState buffer
 void copyPrevState() {
-  prevState = new HashMap(state);
+  prevState = new HashMap<Integer,Integer>(state);
 }
 
 void addEdgeVertices(List<Float> p1, List<Float> p2) {
-  ArrayList<Float> a = new ArrayList(4);
+  ArrayList<Float> a = new ArrayList<Float>(4);
   a.add(p1.get(0));
   a.add(p1.get(1));
   a.add(p2.get(0));
   a.add(p2.get(1));
   edgeVertices.add(a);
   
-  ArrayList<Float> b = new ArrayList(4);
+  ArrayList<Float> b = new ArrayList<Float>(4);
   b.add(p2.get(0));
   b.add(p2.get(1));
   b.add(p1.get(0));
@@ -54,8 +53,8 @@ boolean edgeExists(List<Float> p1, List<Float> p2) {
     // they're the same if within 1 unit of each other
     // TODO: Figure out how to put edgeVertices in a TreeSet and use the tree to avoid iterating
     // over all the edges to find overlaps
-    float dist1 = (float)Math.sqrt(Math.pow(e.get(0) - p1.get(0), 2) + Math.pow(e.get(1) - p1.get(1), 2));
-    float dist2 = (float)Math.sqrt(Math.pow(e.get(2) - p2.get(0), 2) + Math.pow(e.get(3) - p2.get(1), 2));
+    double dist1 = Math.sqrt(Math.pow(e.get(0) - p1.get(0), 2) + Math.pow(e.get(1) - p1.get(1), 2));
+    double dist2 = Math.sqrt(Math.pow(e.get(2) - p2.get(0), 2) + Math.pow(e.get(3) - p2.get(1), 2));
     
     if (dist1 < 1.0 && dist2 < 1.0) {
       return true;
@@ -70,17 +69,17 @@ Integer edgeNo = 0;
 List<Float> e8a, e8b;
 
 void addEdgeIfNotExists(float x1, float y1, float x2, float y2) {
-  ArrayList<Float> p1 = new ArrayList(2);
+  ArrayList<Float> p1 = new ArrayList<Float>(2);
   p1.add(x1);
   p1.add(y1);
     
-  ArrayList<Float> p2 = new ArrayList(2);
+  ArrayList<Float> p2 = new ArrayList<Float>(2);
   p2.add(x2);
   p2.add(y2);
     
   if (!edgeExists(p1, p2)) {
     Integer id = ++edgeNo;
-    HashMap edge = new HashMap();
+    HashMap<String,List<Float>> edge = new HashMap<String,List<Float>>();
     edge.put("p1", p1);
     edge.put("p2", p2);
     edges.put(id, edge);
@@ -94,12 +93,12 @@ void addEdgeIfNotExists(float x1, float y1, float x2, float y2) {
 void setup() {
   size(width, height);
   
-  edges = new HashMap();
-  state = new HashMap();
-  prevState = new HashMap();
-  labels = new HashMap();
-  vertices = new HashMap();
-  edgeVertices = new HashSet();
+  edges = new HashMap<Integer,Map<String,List<Float>>>();
+  state = new HashMap<Integer,Integer>();
+  prevState = new HashMap<Integer,Integer>();
+  labels = new HashMap<List<Float>,Integer>();
+  vertices = new HashMap<List<Float>,ArrayList<Integer>>();
+  edgeVertices = new HashSet<List<Float>>();
   
   int edgeNo = 0;
   
@@ -111,7 +110,6 @@ void setup() {
       float y = originY + edgeLength*(row+row*sin(radians(30)));
 
       if ((row % 2) == 1) {
-        println("HELLO");
         x += edgeLength*cos(radians(30));
       }
       
@@ -143,7 +141,7 @@ void setup() {
   
   copyPrevState();
   
-  neighbors = new HashMap();
+  neighbors = new HashMap<Integer,Set<Integer>>();
   
   // automatically set up neighbors hashtable using a hashmap of vertices
   for (Entry<Integer,Map<String,List<Float>>> e : (Set<Entry<Integer,Map<String,List<Float>>>>)edges.entrySet()) {
@@ -155,7 +153,7 @@ void setup() {
     if (vertices.containsKey(p1)) {
       vertices.get(p1).add(id);
     } else {
-      ArrayList<Integer> list = new ArrayList();
+      ArrayList<Integer> list = new ArrayList<Integer>();
       list.add(id);
       vertices.put(p1, list);
     }
@@ -163,7 +161,7 @@ void setup() {
     if (vertices.containsKey(p2)) {
       vertices.get(p2).add(id);
     } else {
-      ArrayList<Integer> list = new ArrayList();
+      ArrayList<Integer> list = new ArrayList<Integer>();
       list.add(id);
       vertices.put(p2, list);
     }
@@ -174,7 +172,7 @@ void setup() {
     Float y = (edge.get("p1").get(1) + edge.get("p2").get(1))/2.0;
     //println("x=" + x + " y=" + y);
     
-    ArrayList<Float> coord = new ArrayList();
+    ArrayList<Float> coord = new ArrayList<Float>();
     coord.add(x);
     coord.add(y);
     
@@ -193,8 +191,8 @@ void setup() {
       List<Float> vertex = ve.getKey();
       List<Integer> vertexEdges = ve.getValue();
       
-      float dist1 = (float)Math.sqrt(Math.pow(p1.get(0) - vertex.get(0), 2) + Math.pow(p1.get(1) - vertex.get(1), 2));
-      float dist2 = (float)Math.sqrt(Math.pow(p2.get(0) - vertex.get(0), 2) + Math.pow(p2.get(1) - vertex.get(1), 2));
+      double dist1 = Math.sqrt(Math.pow(p1.get(0) - vertex.get(0), 2) + Math.pow(p1.get(1) - vertex.get(1), 2));
+      double dist2 = Math.sqrt(Math.pow(p2.get(0) - vertex.get(0), 2) + Math.pow(p2.get(1) - vertex.get(1), 2));
       
       if (dist1 > 1.0 && dist2 > 1.0) continue;
       
@@ -205,7 +203,7 @@ void setup() {
           if (neighbors.containsKey(id)) {
             neighbors.get(id).add(n);
           } else {
-            HashSet ns = new HashSet();
+            HashSet<Integer> ns = new HashSet<Integer>();
             ns.add(n);
             neighbors.put(id, ns);
           }
@@ -252,9 +250,9 @@ float[] palette(float col) {
 void draw() {
 //  background(255, 204, 0);
   background(255);
-  strokeWeight(20);
+  strokeWeight(edgeThickness);
   
-  float boxWidth = width/256;
+  float boxWidth = width/256.0;
 
   // Draw color palette at the bottom
   
@@ -280,9 +278,9 @@ void draw() {
     Integer id = entry.getKey();
     Map<String,List<Float>> edge = entry.getValue();
     
-    int col = (int)(Integer)state.get(id);
+    Integer col = state.get(id);
     
-    float[] rgb = palette((float)col);
+    float[] rgb = palette(col.floatValue());
     stroke(rgb[0], rgb[1], rgb[2]);
     
     List<Float> p1 = edge.get("p1");
@@ -317,11 +315,8 @@ void advanceState() {
     Integer id = (Integer)entry.getKey();
     Set<Integer> n = neighbors.get(id);
     
-    float ownState = (float)(int)(Integer)prevState.get(id);
+    Float ownState = prevState.get(id).floatValue();
     //println(ownState);
-    
-    float high = 127;
-    float low = 127;
     
     int count = 0;
     float sum = 0;
@@ -331,18 +326,21 @@ void advanceState() {
       continue;
     }
     
+    TreeSet<Float> neighborStates = new TreeSet<Float>();
+    
     for (Integer neighborId : n) {
       if (!prevState.containsKey(neighborId)) {
         println("for " + id + " neighbor " + neighborId + " is not in prevState");
         continue;
       }
       Float neighborState = prevState.get(neighborId).floatValue();
-      if (neighborState > high) high = neighborState;
-      if (neighborState < low) low = neighborState;
-      
+      neighborStates.add(neighborState);
       count++;
       sum += neighborState;
     }
+    
+    float low = neighborStates.first();
+    float high = neighborStates.last();
     
     float avg = sum/count;
     float nextState = ownState;
@@ -367,7 +365,7 @@ void advanceState() {
     if (nextState > 255) nextState = nextState - 255;
     //    int avg = round(sum/weight);
     
-    state.put(id, new Integer(round(nextState)));
+    state.put(id, round(nextState));
   }
   
   copyPrevState();
@@ -376,7 +374,7 @@ void advanceState() {
 // Mouse click handler for color selection
 void mousePressed() {
   if (mouseY > height-paletteHeight) {
-    float boxWidth = width/256;
+    float boxWidth = width/256.0;
     int i = round(mouseX/boxWidth);
     if (i > 255) return;
     
@@ -386,8 +384,8 @@ void mousePressed() {
   
   for (Entry<List<Float>,Integer> entry : (Set<Entry<List<Float>,Integer>>)labels.entrySet()) {
     List<Float> coord = (List<Float>)entry.getKey();
-    float dist = (float)Math.sqrt(Math.pow(coord.get(0) - mouseX, 2) + Math.pow(coord.get(1) - mouseY, 2));
-    if (dist < 40) {
+    double dist = Math.sqrt(Math.pow(coord.get(0) - mouseX, 2) + Math.pow(coord.get(1) - mouseY, 2));
+    if (dist < edgeLength*0.4) {
       Integer id = (Integer)entry.getValue();
 //      println("pressed " + id);
       state.put(id, chosenColor);
