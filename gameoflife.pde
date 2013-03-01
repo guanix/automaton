@@ -226,6 +226,8 @@ void setup() {
       }
     }
   }
+  
+  frameRate(10);
 }
 
 // map unsigned 8-bit value to a color 
