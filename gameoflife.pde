@@ -3,12 +3,17 @@ import java.util.Map.Entry;
 
 int width = 800, height = 700;
 
+int originX = 40, originY = 70;
+
 int edgeLength = 80;
 int paletteHeight = 30;
 
 int lastUpdate = 0;
 
 int updateInterval = 750;
+
+int rows = 4;
+int cols = 4;
 
 int x = 1<<4;
 
@@ -21,22 +26,6 @@ HashMap<Integer,Integer> state, prevState;
 HashMap<List<Float>,Integer> labels;
 HashMap<List<Float>,ArrayList<Integer>> vertices;
 HashSet<List<Float>> edgeVertices;
-
-// Hexagons; list of IDs (we will hook up the connections later)
-// ID of top left, coordinates of top left
-// 6 indicates for whether to include the 6 edges - some are excluded
-// because they overlap with other hexagons, so we don't duplicate edges
-float[][] hexagons = {
-  {100, 100} ,
-  {100 + 2*edgeLength*cos(radians(30)), 100},
-  {100 + 4*edgeLength*cos(radians(30)), 100},
-  {100 + edgeLength*cos(radians(30)), 100 + edgeLength*(1+sin(radians(30)))},
-  {100 + 3*edgeLength*cos(radians(30)), 100+edgeLength*(1+sin(radians(30)))},
-  {100 + 5*edgeLength*cos(radians(30)), 100+edgeLength*(1+sin(radians(30)))},
-  {100, 100+edgeLength*(2+2*sin(radians(30)))},
-  {100+2*edgeLength*cos(radians(30)), 100+edgeLength*(2+2*sin(radians(30)))},
-  {100+4*edgeLength*cos(radians(30)), 100+edgeLength*(2+2*sin(radians(30)))}
-};
 
 // The state hashtable is double buffered so we don't step on ourselves
 // Copy state to its prevState buffer
@@ -116,32 +105,40 @@ void setup() {
   
   // Go through hardcoded list of hexagons and create the edges. Edge 1 is the vertical
   // edge on the left of the hexagon.
-  for (float[] hexagon : hexagons) {
-//    println("HEXAGON starting at " + (int)hexagon[0]);
-    
-    // edge 1
-    addEdgeIfNotExists(hexagon[0], hexagon[1],
-      hexagon[0], hexagon[1] + edgeLength);
+  for (int row = 0; row < rows; row++) {
+    for (int col = 0; col < cols; col++) {
+      float x = originX + col*2*edgeLength*cos(radians(30));
+      float y = originY + edgeLength*(row+row*sin(radians(30)));
 
-    // edge 2
-    addEdgeIfNotExists(hexagon[0], hexagon[1] + edgeLength,
-      hexagon[0] + edgeLength*cos(radians(30)), hexagon[1] + edgeLength + edgeLength*sin(radians(30)));
-
-    // edge 3
-    addEdgeIfNotExists(hexagon[0] + edgeLength*cos(radians(30)), hexagon[1] + edgeLength*(1+sin(radians(30))),
-       hexagon[0] + 2*edgeLength*cos(radians(30)), hexagon[1] + edgeLength);
-    
-    // edge 4
-    addEdgeIfNotExists(hexagon[0] + 2*edgeLength*cos(radians(30)), hexagon[1] + edgeLength,
-      hexagon[0] + 2*edgeLength*cos(radians(30)), hexagon[1]);
-    
-    // edge 5
-    addEdgeIfNotExists(hexagon[0] + 2*edgeLength*cos(radians(30)), hexagon[1],
-      hexagon[0] + edgeLength*cos(radians(30)), hexagon[1] - edgeLength*sin(radians(30)));
-    
-    // edge 6
-    addEdgeIfNotExists(hexagon[0] + edgeLength*cos(radians(30)), hexagon[1] - edgeLength*sin(radians(30)),
-      hexagon[0], hexagon[1]);
+      if ((row % 2) == 1) {
+        println("HELLO");
+        x += edgeLength*cos(radians(30));
+      }
+      
+      // edge 1
+      addEdgeIfNotExists(x, y,
+        x, y + edgeLength);
+  
+      // edge 2
+      addEdgeIfNotExists(x, y + edgeLength,
+        x + edgeLength*cos(radians(30)), y + edgeLength + edgeLength*sin(radians(30)));
+  
+      // edge 3
+      addEdgeIfNotExists(x + edgeLength*cos(radians(30)), y + edgeLength*(1+sin(radians(30))),
+         x + 2*edgeLength*cos(radians(30)), y + edgeLength);
+      
+      // edge 4
+      addEdgeIfNotExists(x + 2*edgeLength*cos(radians(30)), y + edgeLength,
+        x + 2*edgeLength*cos(radians(30)), y);
+      
+      // edge 5
+      addEdgeIfNotExists(x + 2*edgeLength*cos(radians(30)), y,
+        x + edgeLength*cos(radians(30)), y - edgeLength*sin(radians(30)));
+      
+      // edge 6
+      addEdgeIfNotExists(x + edgeLength*cos(radians(30)), y - edgeLength*sin(radians(30)),
+        x, y);
+    }
   }
   
   copyPrevState();
